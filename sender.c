@@ -45,7 +45,8 @@ void writeMessage(int fd, const Message m)
     memcpy(outHeader + 1, &m.payloadLen, 2);
 
     writeAllOrDie(fd, outHeader, sizeof(outHeader));
-    writeAllOrDie(fd, m.payload, m.payloadLen);
+    if (m.payload != NULL)
+        writeAllOrDie(fd, m.payload, m.payloadLen);
 }
 
 Message readMessage(int fd)
@@ -57,8 +58,11 @@ Message readMessage(int fd)
     m.code = inHeader[0];
     memcpy(&m.payloadLen, inHeader + 1, 2);
 
-    m.payload = malloc(m.payloadLen);
-    readAllOrDie(fd, m.payload, m.payloadLen);
+    m.payload = NULL;
+    if (m.payloadLen > 0) {
+        m.payload = malloc(m.payloadLen);
+        readAllOrDie(fd, m.payload, m.payloadLen);
+    }
 
     return m;
 }
