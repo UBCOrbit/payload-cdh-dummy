@@ -37,24 +37,29 @@ typedef struct {
 
 #define EMPTY_MESSAGE(c) (Message){c,0,NULL}
 
-/*Reply startDownload(const uint8_t *, size_t);
-Reply startUpload(const uint8_t *, size_t);
-Reply requestPacket(const uint8_t *, size_t);
-Reply sendPacket(const uint8_t *, size_t);
-Reply cancelUpload(const uint8_t *, size_t);
-Reply cancelDownload(const uint8_t *, size_t);
-Reply finalizeUpload(const uint8_t *, size_t);
-
-static Reply (*const commands[])(const uint8_t *, size_t) = {
+static char const *const command_strs[] = {
     NULL,
-    startDownload,
-    startUpload,
-    requestPacket,
-    sendPacket,
-    cancelUpload,
-    cancelDownload,
-    finalizeUpload
-};*/
+    "start download",
+    "start upload",
+    "request packet",
+    "send packet",
+    "cancel upload",
+    "cancel download",
+    "finalize upload"
+};
+
+static const char *const reply_strs[] = {
+    "success",
+    "file io",
+    "file doesn't exist",
+    "already downloading",
+    "already uploading",
+    "not downloading",
+    "not uploading",
+    "download over",
+    "shasum mismatch",
+    "invalid command"
+};
 
 #endif // commands_h_INCLUDED
 

@@ -5,9 +5,40 @@
 #include <unistd.h>
 
 #include "commands.h"
+#include "sha256_utils.h"
 
 #define SERIAL_DEVICE "/dev/serial0"
 
+long fileLength(FILE *fp)
+{
+    if (fseek(fp, 0, SEEK_END) == -1) {
+        // TODO: proper error handling/return code
+        perror("Error seeking file end");
+        exit(-1);
+    }
+
+    long len = ftell(fp);
+    rewind(fp);
+
+    return len;
+}
+
+uint8_t* readFile(FILE *fp, size_t *size)
+{
+    long len = fileLength(fp);
+
+    uint8_t *data = malloc(len);
+    size_t read = fread(data, 1, len, fp);
+    if (read != len) {
+        // TODO: proper error handling/return code
+        printf("Error reading file\n");
+        exit(-1);
+    }
+    fclose(fp);
+
+    *size = len;
+    return data;
+}
 // TODO: proper error checking and handling here
 void readAllOrDie(int fd, void *buf, size_t len)
 {
@@ -40,6 +71,9 @@ void writeAllOrDie(int fd, const void *buf, size_t len)
 
 void writeMessage(int fd, const Message m)
 {
+    // Debug info
+    printf("Sending command \"%s\" with %u bytes of data\n", command_strs[m.code], m.payloadLen);
+
     uint8_t outHeader[3];
     outHeader[0] = m.code;
     memcpy(outHeader + 1, &m.payloadLen, 2);
@@ -64,11 +98,19 @@ Message readMessage(int fd)
         readAllOrDie(fd, m.payload, m.payloadLen);
     }
 
+    // Debug info
+    printf("Received reply \"%s\" with %u bytes of data\n", reply_strs[m.code], m.payloadLen);
+
     return m;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    if (argc != 2) {
+        printf("%s expects a file as an argument\n", argv[0]);
+        exit(1);
+    }
+
     // Open the serial device
     int serialfd = open(SERIAL_DEVICE, O_RDWR | O_NOCTTY);
     if (serialfd < 0) {
@@ -76,5 +118,59 @@ int main()
         exit(-1);
     }
 
-    // start a transfer of a file to tom, then request that file be transferred back
+    Message m, r;
+
+    // start a transfer of a file to Tom, then request that file be transferred back
+    FILE *test1 = fopen(argv[1], "r");
+    if (test1 == NULL) {
+        perror("error opening file");
+    }
+    size_t dataLen;
+    uint8_t *data = readFile(test1, &dataLen);
+
+    uint8_t shaSum[32];
+    sha256calc(data, dataLen, shaSum);
+
+    m.code = START_UPLOAD;
+    m.payloadLen = 32;
+    m.payload = shaSum;
+
+    writeMessage(serialfd, m);
+    r = readMessage(serialfd);
+    if (r.code != SUCCESS)
+        exit(-1);
+
+    size_t offset = 0;
+    while (offset < dataLen) {
+        m.code = SEND_PACKET;
+        m.payloadLen = dataLen - offset > PACKET_SIZE ? PACKET_SIZE : dataLen - offset;
+
+        m.payload = data + offset;
+
+        writeMessage(serialfd, m);
+        r = readMessage(serialfd);
+        if (r.code != SUCCESS)
+            exit(-1);
+
+        offset += m.payloadLen;
+    }
+
+    char *filename = "test-upload-file";
+
+    m.code = FINALIZE_UPLOAD;
+    m.payloadLen = strlen(filename);
+    m.payload = (uint8_t *)filename;
+
+    writeMessage(serialfd, m);
+    r = readMessage(serialfd);
+    if (r.code != SUCCESS)
+        exit(-1);
+
+    // Download the file back from Tom
+
+    // Start an upload and halt it part way
+
+    // Start a download and halt if part way
+
+    free(data);
 }
