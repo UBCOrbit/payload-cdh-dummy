@@ -34,7 +34,6 @@ uint8_t* readFile(FILE *fp, size_t *size)
         printf("Error reading file\n");
         exit(-1);
     }
-    fclose(fp);
 
     *size = len;
     return data;
@@ -122,6 +121,7 @@ int main(int argc, char *argv[])
 
     Message m, r;
 
+    printf("Running file upload test...\n\n");
     // start a transfer of a file to Tom, then request that file be transferred back
     FILE *test1 = fopen(argv[1], "r");
     if (test1 == NULL) {
@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
     }
     size_t dataLen;
     uint8_t *data = readFile(test1, &dataLen);
+    fclose(test1);
 
     uint8_t shaSum[32];
     sha256calc(data, dataLen, shaSum);
@@ -157,6 +158,8 @@ int main(int argc, char *argv[])
         offset += m.payloadLen;
     }
 
+    free(data);
+
     char *filename = "test-upload-file";
 
     m.code = FINALIZE_UPLOAD;
@@ -168,11 +171,52 @@ int main(int argc, char *argv[])
     if (r.code != SUCCESS)
         exit(-1);
 
+    printf("\nUpload test successful\n\n\n");
+
+    printf("Running file download test...\n\n");
     // Download the file back from Tom
+    m.code = START_DOWNLOAD;
+    m.payloadLen = strlen(filename);
+    m.payload = (uint8_t *)filename;
+
+    writeMessage(serialfd, m);
+    r = readMessage(serialfd);
+    if (r.code != SUCCESS)
+        exit(-1);
+
+    uint8_t *dataDown = malloc(dataLen);
+    offset = 0;
+    while (true) {
+        m = EMPTY_MESSAGE(REQUEST_PACKET);
+
+        writeMessage(serialfd, m);
+        r = readMessage(serialfd);
+        if (r.code == ERROR_DOWNLOAD_OVER)
+            break;
+        else if (r.code != SUCCESS)
+            exit(-1);
+
+        if (offset >= dataLen)
+            exit(-1);
+
+        memcpy(dataDown + offset, r.payload, r.payloadLen);
+        offset += r.payloadLen;
+
+        if (r.payload != NULL)
+            free(r.payload);
+    }
+
+    uint8_t shaSumDown[32];
+    sha256calc(dataDown, dataLen, shaSumDown);
+
+    free(dataDown);
+
+    if (!sha256cmp(shaSum, shaSumDown))
+        exit(-1);
+
+    printf("\nDownload test successful\n");
 
     // Start an upload and halt it part way
 
     // Start a download and halt if part way
-
-    free(data);
 }
