@@ -4,12 +4,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-// 2^15 bytes, 32 kb
+// 32 kb
 #define PACKET_SIZE 0x8000
 
-#define MIN_COMMAND_VAL 1
-#define MAX_COMMAND_VAL 7
+#define MIN_COMMAND_VAL 0
+#define MAX_COMMAND_VAL 9
 
+#define POWEROFF        0
 #define START_DOWNLOAD  1
 #define START_UPLOAD    2
 #define REQUEST_PACKET  3
@@ -17,6 +18,8 @@
 #define CANCEL_UPLOAD   5
 #define CANCEL_DOWNLOAD 6
 #define FINALIZE_UPLOAD 7
+#define TAKE_PHOTO      8
+#define EXECUTE_COMMAND 9
 
 #define SUCCESS                   0
 #define ERROR_FILE_IO             1
@@ -28,24 +31,27 @@
 #define ERROR_DOWNLOAD_OVER       7
 #define ERROR_SHASUM_MISMATCH     8
 #define ERROR_INVALID_COMMAND     9
+#define ERROR_SH_FAILURE          10
 
 typedef struct {
-    uint8_t code;
+    uint8_t  code;
     uint16_t payloadLen;
     uint8_t *payload;
 } Message;
 
 #define EMPTY_MESSAGE(c) (Message){c,0,NULL}
 
-static char const *const command_strs[] = {
-    NULL,
+static const char *const command_strs[] = {
+    "poweroff",
     "start download",
     "start upload",
     "request packet",
     "send packet",
     "cancel upload",
     "cancel download",
-    "finalize upload"
+    "finalize upload",
+    "take photo",
+    "execute command"
 };
 
 static const char *const reply_strs[] = {
@@ -58,7 +64,8 @@ static const char *const reply_strs[] = {
     "not uploading",
     "download over",
     "shasum mismatch",
-    "invalid command"
+    "invalid command",
+    "sh failure"
 };
 
 #endif // commands_h_INCLUDED

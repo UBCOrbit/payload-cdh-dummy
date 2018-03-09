@@ -39,6 +39,7 @@ uint8_t* readFile(FILE *fp, size_t *size)
     *size = len;
     return data;
 }
+
 // TODO: proper error checking and handling here
 void readAllOrDie(int fd, void *buf, size_t len)
 {
@@ -59,6 +60,7 @@ void writeAllOrDie(int fd, const void *buf, size_t len)
 {
     size_t offset = 0;
     ssize_t result;
+    sync();
     while (offset < len) {
         result = write(fd, buf + offset, len - offset);
         if (result < 0) {
